@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pastel Cozy Café</title>
+    
+    <link rel="manifest" href="manifest.json">
+
+    <style>
+        :root {
+            --pink: #ffdae9;
+            --blue: #e0f4ff;
+            --cream: #fff9f0;
+            --brown: #8d6e63;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--pink);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            max-width: 450px;
+            background: var(--cream);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            border: 8px solid white;
+            box-sizing: border-box;
+        }
+
+        /* --- UI STYLES --- */
+        #header {
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            background: white;
+            border-bottom: 4px solid var(--pink);
+        }
+
+        .stat-box {
+            background: var(--blue);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        /* --- CUSTOMER AREA --- */
+        #customer-zone {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .bubble {
+            background: white;
+            padding: 15px;
+            border-radius: 20px;
+            margin-bottom: 10px;
+            border: 3px solid var(--pink);
+            position: relative;
+            font-size: 1.2rem;
+            animation: float 2s infinite ease-in-out;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        #customer-sprite { font-size: 80px; }
+
+        /* --- KITCHEN AREA --- */
+        #kitchen {
+            height: 40%;
+            background: var(--blue);
+            border-top: 5px solid white;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .ingredient {
+            background: white;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 30px;
+            border-bottom: 5px solid #ddd;
+            transition: transform 0.1s;
+        }
+
+        .ingredient:active {
+            transform: scale(0.9);
+            border-bottom: 0;
+        }
+
+        /* --- SCREENS --- */
+        .screen {
+            position: absolute;
+            inset: 0;
+            background: var(--pink);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        button {
+            background: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            color: var(--brown);
+            font-weight: bold;
+            font-size: 20px;
+            box-shadow: 0 4px var(--brown);
+            margin-top: 20px;
+        }
+
+        button:active {
+            box-shadow: 0 0;
+            transform: translateY(4px);
+        }
+
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <div id="header">
+            <div class="stat-box">💰 <span id="coins">0</span></div>
+            <div class="stat-box">❤️ <span id="hearts">3</span></div>
+        </div>
+
+        <div id="customer-zone">
+            <div id="order-bubble" class="bubble">Loading...</div>
+            <div id="customer-sprite">🐱</div>
+        </div>
+
+        <div id="kitchen">
+            <div class="ingredient" onclick="addIngredient('🥞')">🥞<br><small>Cake</small></div>
+            <div class="ingredient" onclick="addIngredient('🍯')">🍯<br><small>Syrup</small></div>
+            <div class="ingredient" onclick="addIngredient('🍓')">🍓<br><small>Berry</small></div>
+            <div class="ingredient" onclick="addIngredient('🍵')">🍵<br><small>Tea</small></div>
+            <div class="ingredient" onclick="addIngredient('🥛')">🥛<br><small>Milk</small></div>
+            <div class="ingredient" onclick="addIngredient('⚫')">⚫<br><small>Boba</small></div>
+        </div>
+
+        <div id="start-screen" class="screen">
+            <h1 style="color:white; font-size: 3rem;">Cozy Café</h1>
+            <button onclick="startGame()">OPEN SHOP</button>
+        </div>
+
+        <div id="game-over-screen" class="screen hidden">
+            <h1>SHOP CLOSED</h1>
+            <p>You served many cuties today!</p>
+            <button onclick="location.reload()">RESTART</button>
+        </div>
+    </div>
+
+    <script>
+        // Recipes Database
+        const recipes = [
+            { name: "Pancakes", items: ['🥞', '🍯'], reward: 10 },
+            { name: "Berry Cakes", items: ['🥞', '🍓'], reward: 15 },
+            { name: "Boba Tea", items: ['🍵', '🥛', '⚫'], reward: 20 },
+            { name: "Strawberry Tea", items: ['🍵', '🍓'], reward: 12 }
+        ];
+
+        let currentOrder = null;
+        let playerMix = [];
+        let coins = 0;
+        let hearts = 3;
+
+        function startGame() {
+            document.getElementById('start-screen').classList.add('hidden');
+            nextCustomer();
+        }
+
+        function nextCustomer() {
+            playerMix = [];
+            currentOrder = recipes[Math.floor(Math.random() * recipes.length)];
+            document.getElementById('order-bubble').innerText = "I want " + currentOrder.name + "!";
+            
+            // Randomize customer emoji
+            const customers = ['🐱', '🐰', '🐻', '🐶', '🐼'];
+            document.getElementById('customer-sprite').innerText = customers[Math.floor(Math.random() * customers.length)];
+        }
+
+        function addIngredient(emoji) {
+            playerMix.push(emoji);
+            
+            // Check if player has tapped enough ingredients
+            if (playerMix.length === currentOrder.items.length) {
+                checkResult();
+            }
+        }
+
+        function checkResult() {
+            const isCorrect = playerMix.every((val, index) => val === currentOrder.items[index]);
+
+            if (isCorrect) {
+                coins += currentOrder.reward;
+                document.getElementById('coins').innerText = coins;
+                showFeedback("✨ PERFECT! ✨", "var(--blue)");
+            } else {
+                hearts--;
+                document.getElementById('hearts').innerText = hearts;
+                showFeedback("❌ OOPS! ❌", "#ffcfcf");
+                if (hearts <= 0) endGame();
+            }
+
+            if (hearts > 0) {
+                setTimeout(nextCustomer, 1000);
+            }
+        }
+
+        function showFeedback(text, color) {
+            const bubble = document.getElementById('order-bubble');
+            bubble.innerText = text;
+            bubble.style.background = color;
+            setTimeout(() => bubble.style.background = "white", 1000);
+        }
+
+        function endGame() {
+            document.getElementById('game-over-screen').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
